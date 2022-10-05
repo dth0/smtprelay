@@ -47,10 +47,20 @@ spec:
             periodSeconds: 10
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            {{- toYaml .Values.envVars | nindent 12 }}
+          volumeMounts:
+            - name: dkim
+              mountPath: "/etc/smtprelay/dkim"
+              readOnly: true
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      volumes:
+        - name: dkim
+          secret:
+            secretName: dkim
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}

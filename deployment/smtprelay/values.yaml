@@ -7,9 +7,9 @@ replicaCount: 1
 image:
   repository: dtheodoro/smtprelay
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "v0.3"
+  tag: "latest"
 
+envVars: []
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -35,6 +35,7 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
+
 
 service:
   type: ClusterIP
