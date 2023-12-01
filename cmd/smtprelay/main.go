@@ -7,14 +7,12 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"net/smtp"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/chrj/smtpd"
 	"github.com/emersion/go-msgauth/dkim"
@@ -28,28 +26,6 @@ type Config struct {
 	DkimKey      string `default:"dkim.key"`
 	DkimSelector string `default:"default"`
 	DkimDomain   string `default:"example.com"`
-}
-
-func init() {
-	rand.Seed(time.Now().Unix())
-}
-
-// TODO: return a list of server ordered by priority
-func findNextHop(domain string) (string, error) {
-	entries, err := net.LookupMX(domain)
-	if err != nil {
-		return "", err
-	}
-
-	index := rand.Intn(len(entries))
-
-	host := entries[index].Host
-
-	if host[len(host)-1] == '.' {
-		host = host[0 : len(host)-1]
-	}
-
-	return host, nil
 }
 
 func parseConfig() (Config, error) {
@@ -106,13 +82,14 @@ func main() {
 				return err
 			}
 
-			hop, err := findNextHop(domain)
+			mx, err := net.LookupMX(domain)
 			if err != nil {
 				log.Println(err)
 				return err
 			}
 
-			log.Printf("Sending email from %s to %s via %s\n", env.Sender, env.Recipients[0], hop)
+			data := env.Data
+
 			if dkimEnabled {
 				dkimOpts := &dkim.SignOptions{
 					Domain:   cfg.DkimDomain,
@@ -127,16 +104,27 @@ func main() {
 					return err
 				}
 
-				return smtp.SendMail(fmt.Sprintf("%s:25", hop), nil, env.Sender, env.Recipients, msg.Bytes())
+				data = msg.Bytes()
 			}
 
-			return smtp.SendMail(fmt.Sprintf("%s:25", hop), nil, env.Sender, env.Recipients, env.Data)
+			for _, hop := range mx {
+				host := strings.TrimRight(hop.Host, ".")
+
+				err := smtp.SendMail(fmt.Sprintf("%s:25", host), nil, env.Sender, env.Recipients, data)
+				if err == nil {
+					log.Printf("Sending email from %s to %s via %s\n", env.Sender, env.Recipients[0], host)
+					return nil
+				}
+
+			}
+
+			return fmt.Errorf("unable to deliver to: %v", mx)
 
 		},
 	}
 
 	go func() {
-		log.Printf("Starting server at: %s\n", cfg.Listen)
+		log.Printf("Starting server at: (%s)\n", cfg.Listen)
 		err := server.ListenAndServe(cfg.Listen)
 		if err != nil && err != smtpd.ErrServerClosed {
 			log.Fatalf("error server: %s\n", err)

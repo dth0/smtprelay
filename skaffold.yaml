@@ -1,0 +1,22 @@
+apiVersion: skaffold/v4beta2
+kind: Config
+metadata:
+  name: smtprelay
+build:
+  artifacts:
+  - image: dtheodoro/smtprelay
+    docker:
+      cacheFrom:
+      - dtheodoro/smtprelay
+      dockerfile: Dockerfile
+  local:
+    push: false
+deploy:
+  helm:
+    releases:
+    - name: smtprelay
+      chartPath: deployment/smtprelay
+      setValueTemplates:
+        image.repository: "{{.IMAGE_REPO_dtheodoro_smtprelay}}"
+        image.tag: "{{.IMAGE_TAG_dtheodoro_smtprelay}}@{{.IMAGE_DIGEST_dtheodoro_smtprelay}}"
+      version: 0.1.0
