@@ -28,16 +28,15 @@ type Config struct {
 	DkimDomain   string `default:"example.com"`
 }
 
-func parseConfig() (Config, error) {
-	var c Config
-	err := envconfig.Process("smtp", &c)
+func NewConfig() (*Config, error) {
+	cfg := &Config{}
+
+	err := envconfig.Process("smtp", cfg)
 	if err != nil {
-		return c, err
+		return nil, err
 	}
 
-	log.Printf("Load config: listen to %s, dkim (%s - %s - %s)", c.Listen, c.DkimDomain, c.DkimSelector, c.DkimKey)
-
-	return c, err
+	return cfg, nil
 }
 
 func loadPrivateKey(keyfile string) (crypto.Signer, error) {
@@ -52,10 +51,11 @@ func loadPrivateKey(keyfile string) (crypto.Signer, error) {
 }
 
 func main() {
-	cfg, err := parseConfig()
+	cfg, err := NewConfig()
 	if err != nil {
 		log.Fatalf("error parsing config: %s\n", err)
 	}
+	log.Printf("Load config: listen to %s, dkim (%s - %s - %s)", cfg.Listen, cfg.DkimDomain, cfg.DkimSelector, cfg.DkimKey)
 
 	dkimEnabled := true
 	privatekey, err := loadPrivateKey(cfg.DkimKey)
@@ -67,16 +67,7 @@ func main() {
 	server := &smtpd.Server{
 		MaxRecipients: 1,
 		Handler: func(_ smtpd.Peer, env smtpd.Envelope) error {
-
-			domain, err := func(email string) (string, error) {
-				addr := strings.Split(email, "@")
-				if len(addr) != 2 {
-					return "", fmt.Errorf("malformed e-mail address: %s", email)
-				}
-
-				return addr[1], nil
-			}(env.Recipients[0])
-
+			domain, err := getDoman(env.Recipients[0])
 			if err != nil {
 				log.Println(err)
 				return err
@@ -119,7 +110,6 @@ func main() {
 			}
 
 			return fmt.Errorf("unable to deliver to: %v", mx)
-
 		},
 	}
 
@@ -140,4 +130,13 @@ func main() {
 	if err := server.Shutdown(true); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func getDoman(email string) (string, error) {
+	addr := strings.Split(email, "@")
+	if len(addr) != 2 {
+		return "", fmt.Errorf("malformed e-mail address: %s", email)
+	}
+
+	return addr[1], nil
 }
