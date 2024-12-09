@@ -67,7 +67,7 @@ func main() {
 	server := &smtpd.Server{
 		MaxRecipients: 1,
 		Handler: func(_ smtpd.Peer, env smtpd.Envelope) error {
-			domain, err := getDoman(env.Recipients[0])
+			domain, err := getDomain(env.Recipients[0])
 			if err != nil {
 				log.Println(err)
 				return err
@@ -132,7 +132,7 @@ func main() {
 	}
 }
 
-func getDoman(email string) (string, error) {
+func getDomain(email string) (string, error) {
 	addr := strings.Split(email, "@")
 	if len(addr) != 2 {
 		return "", fmt.Errorf("malformed e-mail address: %s", email)
