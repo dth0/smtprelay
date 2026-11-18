@@ -1,6 +1,6 @@
 module github.com/dtheodoro/smtprelay
 
-go 1.19
+go 1.26
 
 require github.com/chrj/smtpd v0.3.1
 
